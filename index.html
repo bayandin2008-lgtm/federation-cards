@@ -20,67 +20,18 @@
             background: white;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
-        .athlete-header {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-            margin-bottom: 20px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid #eee;
-        }
-        .athlete-main-info {
-            flex: 1;
-        }
-        .status-approved {
-            color: #28a745;
-            font-weight: bold;
-            font-size: 1.3em;
-            padding: 10px;
-            border: 2px solid #28a745;
-            border-radius: 5px;
-            text-align: center;
-            margin: 15px 0;
-        }
-        .status-rejected {
-            color: #dc3545;
-            font-weight: bold;
-            font-size: 1.3em;
-            padding: 10px;
-            border: 2px solid #dc3545;
-            border-radius: 5px;
-            text-align: center;
-            margin: 15px 0;
-        }
-        .photo {
-            width: 120px;
-            height: 120px;
-            object-fit: cover;
-            border-radius: 10px;
-            border: 3px solid #333;
-        }
         .loading {
             text-align: center;
             font-size: 1.2em;
             color: #666;
+            padding: 40px;
         }
-        .section {
-            margin: 15px 0;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 8px;
-        }
-        .discipline-badge {
-            display: inline-block;
-            background: #007bff;
-            color: white;
-            padding: 5px 10px;
-            border-radius: 15px;
-            font-size: 0.9em;
-            margin-top: 5px;
-        }
-        .personal-info {
-            color: #666;
-            margin: 5px 0;
+        .error {
+            background: #ffe6e6;
+            border: 1px solid #ffcccc;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
         }
     </style>
 </head>
@@ -100,43 +51,62 @@
             return urlParams.get('id') || '1';
         }
 
-        // Функция для загрузки данных через CORS прокси
-        async function loadAthleteData() {
+        // Функция для загрузки данных с таймаутом
+        function loadAthleteData() {
             const athleteId = getAthleteId();
+            const timeout = 10000; // 10 секунд таймаут
             
-            try {
-                document.getElementById('athlete-info').innerHTML = '<p class="loading">Подключаемся к базе данных...</p>';
-                
-                // Используем CORS прокси для обхода ограничений
-                const proxyUrl = 'https://api.allorigins.win/raw?url=';
-                const spreadsheetUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv`;
-                
-                const response = await fetch(proxyUrl + encodeURIComponent(spreadsheetUrl));
-                
-                if (!response.ok) {
-                    throw new Error('Ошибка загрузки данных');
-                }
-                
-                const csvData = await response.text();
-                const athletes = parseCSV(csvData);
-                const athlete = athletes.find(a => a.id === athleteId);
+            // Устанавливаем таймаут
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Таймаут загрузки данных')), timeout);
+            });
+            
+            // Запрос к данным
+            const dataPromise = fetchDataFromSheet();
+            
+            // Обрабатываем с таймаутом
+            Promise.race([dataPromise, timeoutPromise])
+                .then(athletes => {
+                    const athlete = athletes.find(a => a.id === athleteId);
+                    if (athlete) {
+                        displayAthleteData(athlete);
+                    } else {
+                        showError('Спортсмен с ID ' + athleteId + ' не найден');
+                    }
+                })
+                .catch(error => {
+                    console.error('Ошибка:', error);
+                    showError('Не удалось загрузить данные: ' + error.message);
+                });
+        }
 
-                if (athlete) {
-                    displayAthleteData(athlete);
-                } else {
-                    document.getElementById('athlete-info').innerHTML = 
-                        '<p>Спортсмен с ID ' + athleteId + ' не найден в базе данных</p>';
+        // Упрощенная функция для получения данных
+        async function fetchDataFromSheet() {
+            // Пробуем разные прокси
+            const proxies = [
+                'https://api.allorigins.win/raw?url=',
+                'https://corsproxy.io/?',
+                'https://api.codetabs.com/v1/proxy?quest='
+            ];
+            
+            const spreadsheetUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv`;
+            
+            for (let proxy of proxies) {
+                try {
+                    console.log('Пробуем прокси:', proxy);
+                    const response = await fetch(proxy + encodeURIComponent(spreadsheetUrl));
+                    
+                    if (response.ok) {
+                        const csvData = await response.text();
+                        return parseCSV(csvData);
+                    }
+                } catch (error) {
+                    console.log('Прокси не сработал:', proxy, error);
+                    continue;
                 }
-                
-            } catch (error) {
-                console.error('Ошибка:', error);
-                document.getElementById('athlete-info').innerHTML = 
-                    '<div class="athlete-card">' +
-                    '<h3>⚠️ Временная техническая ошибка</h3>' +
-                    '<p>Не удалось загрузить данные из базы. Пожалуйста, попробуйте позже или обратитесь к администратору.</p>' +
-                    '<p><small>Техническая информация: ' + error.message + '</small></p>' +
-                    '</div>';
             }
+            
+            throw new Error('Все прокси не сработали');
         }
 
         // Функция для парсинга CSV
@@ -144,7 +114,6 @@
             const lines = csvText.split('\n').filter(line => line.trim() !== '');
             if (lines.length < 2) return [];
 
-            // Получаем заголовки (первая строка)
             const headers = lines[0].split(',').map(header => 
                 header.replace(/"/g, '').trim().toLowerCase()
             );
@@ -152,26 +121,8 @@
             const athletes = [];
             
             for (let i = 1; i < lines.length; i++) {
-                const line = lines[i];
-                // Более надежный парсинг CSV с учетом запятых в значениях
-                const values = [];
-                let inQuotes = false;
-                let currentValue = '';
-
-                for (let j = 0; j < line.length; j++) {
-                    const char = line[j];
-                    
-                    if (char === '"') {
-                        inQuotes = !inQuotes;
-                    } else if (char === ',' && !inQuotes) {
-                        values.push(currentValue.replace(/"/g, '').trim());
-                        currentValue = '';
-                    } else {
-                        currentValue += char;
-                    }
-                }
-                values.push(currentValue.replace(/"/g, '').trim());
-
+                const values = parseCSVLine(lines[i]);
+                
                 if (values.length === headers.length) {
                     const athlete = {};
                     headers.forEach((header, index) => {
@@ -184,50 +135,72 @@
             return athletes;
         }
 
+        // Парсинг одной строки CSV
+        function parseCSVLine(line) {
+            const values = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    values.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            
+            values.push(current.trim());
+            return values.map(val => val.replace(/"/g, ''));
+        }
+
         // Функция для отображения данных спортсмена
         function displayAthleteData(data) {
-            console.log('Данные из таблицы:', data); // Для отладки
+            console.log('Загруженные данные:', data);
             
             const statusClass = data.допуск === "✅" ? "status-approved" : "status-rejected";
             const statusText = data.допуск === "✅" ? "ДОПУСК ПОДТВЕРЖДЕН" : "ДОПУСК ЗАПРЕЩЕН";
 
+            // Простая версия без сложного форматирования
             const html = `
                 <div class="athlete-card">
-                    <div class="athlete-header">
-                        ${data.фото_url ? `<img src="${data.фото_url}" alt="Фото" class="photo">` : ''}
-                        <div class="athlete-main-info">
-                            <h2>${data.фио || 'Не указано'}</h2>
-                            <p class="personal-info">
-                                <strong>Дата рождения:</strong> ${data.дата_рождения || 'Не указана'}
-                            </p>
-                            ${data.дисциплина ? `<div class="discipline-badge">${data.дисциплина}</div>` : ''}
-                        </div>
+                    <h2>${data.фио || 'Не указано'}</h2>
+                    <p><strong>Дата рождения:</strong> ${data.дата_рождения || 'Не указана'}</p>
+                    ${data.дисциплина ? `<p><strong>Дисциплина:</strong> ${data.дисциплина}</p>` : ''}
+                    
+                    <h3>Допуски к соревнованиям:</h3>
+                    <p>Медсправка: ${data.статус_медсправки || '❌'}</p>
+                    <p>Страховка: ${data.статус_страховки || '❌'}</p>
+                    <p>Членский взнос: ${data.членский_взнос || '❌'}</p>
+                    
+                    <div style="color: ${data.допуск === "✅" ? 'green' : 'red'}; font-weight: bold; margin: 15px 0; padding: 10px; border: 2px solid ${data.допуск === "✅" ? 'green' : 'red'}; border-radius: 5px; text-align: center;">
+                        ${statusText}
                     </div>
                     
-                    <div class="section">
-                        <h3>📋 Допуски к соревнованиям:</h3>
-                        <p>🏥 Медсправка: ${data.статус_медсправки || '❌'}</p>
-                        <p>📄 Страховка: ${data.статус_страховки || '❌'}</p>
-                        <p>💰 Членский взнос: ${data.членский_взнос || '❌'}</p>
-                    </div>
-                    
-                    <div class="${statusClass}">${statusText}</div>
-                    
-                    <div class="section">
-                        <h3>🏅 Спортивная информация:</h3>
-                        <p>⭐ Рейтинг: ${data.рейтинг || 'Не указан'}</p>
-                        <p>🏆 Достижения: ${data.достижения || 'Нет'}</p>
-                        <p>💪 Элементы: ${data.элементы || 'Нет'}</p>
-                        <p>📞 Телефон: ${data.телефон || 'Не указан'}</p>
-                    </div>
-                    
-                    <div style="margin-top: 20px; padding: 10px; background: #e9ecef; border-radius: 5px;">
-                        <small>ID спортсмена: ${data.id} | Обновлено: ${new Date().toLocaleString()}</small>
-                    </div>
+                    <h3>Спортивная информация:</h3>
+                    <p>Рейтинг: ${data.рейтинг || 'Не указан'}</p>
+                    <p>Достижения: ${data.достижения || 'Нет'}</p>
+                    <p>Элементы: ${data.элементы || 'Нет'}</p>
+                    <p>Телефон: ${data.телефон || 'Не указан'}</p>
                 </div>
             `;
 
             document.getElementById('athlete-info').innerHTML = html;
+        }
+
+        // Функция показа ошибки
+        function showError(message) {
+            document.getElementById('athlete-info').innerHTML = `
+                <div class="error">
+                    <h3>Ошибка загрузки</h3>
+                    <p>${message}</p>
+                    <p><small>Попробуйте обновить страницу или обратитесь к администратору</small></p>
+                </div>
+            `;
         }
 
         // Загружаем данные при загрузке страницы
