@@ -111,24 +111,31 @@
             return urlParams.get('id') || '1';
         }
 
-        // Функция для загрузки данных через Google Apps Script
-        async function loadAthleteData() {
-            const athleteId = getAthleteId();
-            
-            try {
-                const response = await fetch(`${SCRIPT_URL}?id=${athleteId}`);
-                const result = await response.json();
-                
-                if (result.success && result.data) {
-                    displayAthleteData(result.data);
-                } else {
-                    showError(result.error || 'Спортсмен не найден');
-                }
-                
-            } catch (error) {
-                console.error('Ошибка:', error);
-                showError('Ошибка подключения к серверу: ' + error.message);
+        // Глобальная функция для обработки JSONP ответа
+        window.handleJsonpResponse = function(response) {
+            if (response.success && response.data) {
+                displayAthleteData(response.data);
+            } else {
+                showError(response.error || 'Спортсмен не найден');
             }
+        };
+
+        // Функция для загрузки данных через JSONP
+        function loadAthleteData() {
+            const athleteId = getAthleteId();
+            const callbackName = 'handleJsonpResponse';
+            
+            // Создаем script тег для JSONP запроса
+            const script = document.createElement('script');
+            script.src = `${SCRIPT_URL}?id=${athleteId}&callback=${callbackName}`;
+            
+            // Обработчик ошибок
+            script.onerror = function() {
+                showError('Ошибка загрузки данных. Проверьте подключение к интернету.');
+            };
+            
+            // Добавляем script на страницу
+            document.head.appendChild(script);
         }
 
         // Функция для отображения данных спортсмена
