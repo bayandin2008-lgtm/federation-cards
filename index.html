@@ -51,62 +51,93 @@
             return urlParams.get('id') || '1';
         }
 
-        // Функция для загрузки данных с таймаутом
-        function loadAthleteData() {
+        // Функция для загрузки данных
+        async function loadAthleteData() {
             const athleteId = getAthleteId();
-            const timeout = 10000; // 10 секунд таймаут
             
-            // Устанавливаем таймаут
-            const timeoutPromise = new Promise((_, reject) => {
-                setTimeout(() => reject(new Error('Таймаут загрузки данных')), timeout);
-            });
-            
-            // Запрос к данным
-            const dataPromise = fetchDataFromSheet();
-            
-            // Обрабатываем с таймаутом
-            Promise.race([dataPromise, timeoutPromise])
-                .then(athletes => {
-                    const athlete = athletes.find(a => a.id === athleteId);
-                    if (athlete) {
-                        displayAthleteData(athlete);
-                    } else {
-                        showError('Спортсмен с ID ' + athleteId + ' не найден');
-                    }
-                })
-                .catch(error => {
-                    console.error('Ошибка:', error);
-                    showError('Не удалось загрузить данные: ' + error.message);
-                });
+            try {
+                // Пробуем разные способы получения данных
+                const athletes = await tryAllDataSources();
+                const athlete = athletes.find(a => a.id === athleteId);
+
+                if (athlete) {
+                    displayAthleteData(athlete);
+                } else {
+                    showError('Спортсмен с ID ' + athleteId + ' не найден');
+                }
+                
+            } catch (error) {
+                console.error('Ошибка:', error);
+                // Показываем статические данные как запасной вариант
+                showStaticData();
+            }
         }
 
-        // Упрощенная функция для получения данных
-        async function fetchDataFromSheet() {
-            // Пробуем разные прокси
+        // Пробуем разные источники данных
+        async function tryAllDataSources() {
+            const dataSources = [
+                tryDirectCSV(),
+                tryCorsProxy(),
+                tryJsonEndpoint()
+            ];
+
+            for (let source of dataSources) {
+                try {
+                    const result = await source;
+                    if (result && result.length > 0) {
+                        console.log('Данные загружены через:', source.name);
+                        return result;
+                    }
+                } catch (error) {
+                    console.log('Не удалось загрузить через:', source.name, error);
+                    continue;
+                }
+            }
+            
+            throw new Error('Все источники данных недоступны');
+        }
+
+        // Прямое получение CSV (может не работать из-за CORS)
+        async function tryDirectCSV() {
+            const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv`;
+            const response = await fetch(url);
+            const csvData = await response.text();
+            return parseCSV(csvData);
+        }
+
+        // Через CORS прокси
+        async function tryCorsProxy() {
             const proxies = [
-                'https://api.allorigins.win/raw?url=',
                 'https://corsproxy.io/?',
-                'https://api.codetabs.com/v1/proxy?quest='
+                'https://api.codetabs.com/v1/proxy?quest=',
+                'https://cors-anywhere.herokuapp.com/'
             ];
             
             const spreadsheetUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv`;
             
             for (let proxy of proxies) {
                 try {
-                    console.log('Пробуем прокси:', proxy);
-                    const response = await fetch(proxy + encodeURIComponent(spreadsheetUrl));
+                    const response = await fetch(proxy + encodeURIComponent(spreadsheetUrl), {
+                        timeout: 5000
+                    });
                     
                     if (response.ok) {
                         const csvData = await response.text();
                         return parseCSV(csvData);
                     }
                 } catch (error) {
-                    console.log('Прокси не сработал:', proxy, error);
                     continue;
                 }
             }
-            
             throw new Error('Все прокси не сработали');
+        }
+
+        // Альтернативный JSON endpoint
+        async function tryJsonEndpoint() {
+            const url = `https://opensheet.elk.sh/${SPREADSHEET_ID}/1`;
+            const response = await fetch(url);
+            const jsonData = await response.json();
+            return jsonData;
         }
 
         // Функция для парсинга CSV
@@ -165,7 +196,6 @@
             const statusClass = data.допуск === "✅" ? "status-approved" : "status-rejected";
             const statusText = data.допуск === "✅" ? "ДОПУСК ПОДТВЕРЖДЕН" : "ДОПУСК ЗАПРЕЩЕН";
 
-            // Простая версия без сложного форматирования
             const html = `
                 <div class="athlete-card">
                     <h2>${data.фио || 'Не указано'}</h2>
@@ -186,10 +216,46 @@
                     <p>Достижения: ${data.достижения || 'Нет'}</p>
                     <p>Элементы: ${data.элементы || 'Нет'}</p>
                     <p>Телефон: ${data.телефон || 'Не указан'}</p>
+                    
+                    <div style="margin-top: 20px; padding: 10px; background: #e9ecef; border-radius: 5px;">
+                        <small>ID спортсмена: ${data.id} | Обновлено: ${new Date().toLocaleString()}</small>
+                    </div>
                 </div>
             `;
 
             document.getElementById('athlete-info').innerHTML = html;
+        }
+
+        // Показываем статические данные как запасной вариант
+        function showStaticData() {
+            const staticData = {
+                id: "1",
+                фио: "Иванов Алексей",
+                дисциплина: "Фристайл Многоборье",
+                фото_url: "",
+                телефон: "79991112233",
+                статус_медсправки: "✅",
+                статус_страховки: "✅", 
+                членский_взнос: "✅",
+                рейтинг: "85",
+                допуск: "✅",
+                дата_рождения: "15.03.1995",
+                достижения: "Чемпион Саратовской области",
+                элементы: "Выход силой, горизонт"
+            };
+            
+            displayAthleteData(staticData);
+            
+            // Добавляем сообщение об использовании статических данных
+            const card = document.querySelector('.athlete-card');
+            const warning = document.createElement('div');
+            warning.style.background = '#fff3cd';
+            warning.style.border = '1px solid #ffeaa7';
+            warning.style.padding = '10px';
+            warning.style.borderRadius = '5px';
+            warning.style.marginTop = '10px';
+            warning.innerHTML = '<strong>Внимание:</strong> Используются статические данные. Подключение к таблице временно недоступно.';
+            card.appendChild(warning);
         }
 
         // Функция показа ошибки
@@ -198,7 +264,7 @@
                 <div class="error">
                     <h3>Ошибка загрузки</h3>
                     <p>${message}</p>
-                    <p><small>Попробуйте обновить страницу или обратитесь к администратору</small></p>
+                    <button onclick="location.reload()">Обновить страницу</button>
                 </div>
             `;
         }
