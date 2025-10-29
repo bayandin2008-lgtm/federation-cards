@@ -152,25 +152,43 @@ function displayAthleteData(data) {
     const statusClass = athlete.допуск === "✅" ? "status-approved" : "status-rejected";
     const statusText = athlete.допуск === "✅" ? "ДОПУСК ПОДТВЕРЖДЕН" : "ДОПУСК ЗАПРЕЩЕН";
 
-    // Форматируем дату рождения
-    let formattedBirthDate = athlete.дата_рождения || 'Не указана';
-    if (athlete.дата_рождения) {
+    // Универсальная функция форматирования даты
+    function formatBirthDate(dateString) {
+        if (!dateString) return 'Не указана';
+        
+        console.log('Исходная дата:', dateString, 'Тип:', typeof dateString);
+        
+        // Если дата уже в правильном формате (дд.мм.гггг)
+        if (typeof dateString === 'string' && dateString.match(/^\d{1,2}\.\d{1,2}\.\d{4}$/)) {
+            return dateString;
+        }
+        
+        // Если это ISO строка (2024-03-14T21:00:00.000Z)
+        if (typeof dateString === 'string' && dateString.includes('T')) {
+            try {
+                const date = new Date(dateString);
+                return date.toLocaleDateString('ru-RU');
+            } catch (e) {
+                console.error('Ошибка форматирования ISO даты:', e);
+                return dateString;
+            }
+        }
+        
+        // Если это объект Date или timestamp
         try {
-            // Пробуем разные форматы дат
-            const date = new Date(athlete.дата_рождения);
+            const date = new Date(dateString);
             if (!isNaN(date.getTime())) {
-                // Форматируем как дд.мм.гггг
-                formattedBirthDate = date.toLocaleDateString('ru-RU', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric'
-                });
+                return date.toLocaleDateString('ru-RU');
             }
         } catch (e) {
-            // Если не удалось отформатировать, оставляем как есть
-            console.log('Не удалось отформатировать дату:', e);
+            console.error('Ошибка форматирования даты:', e);
         }
+        
+        // Если ничего не подошло, возвращаем как есть
+        return dateString;
     }
+
+    const formattedBirthDate = formatBirthDate(athlete.дата_рождения);
 
     const html = `
         <div class="athlete-card">
