@@ -139,64 +139,84 @@
         }
 
         // Функция для отображения данных спортсмена
-        function displayAthleteData(data) {
-            console.log('Загруженные данные:', data);
-            
-            // Приводим ключи к нижнему регистру для надежности
-            const normalizedData = {};
-            Object.keys(data).forEach(key => {
-                normalizedData[key.toLowerCase()] = data[key];
-            });
-            
-            const athlete = normalizedData;
-            const statusClass = athlete.допуск === "✅" ? "status-approved" : "status-rejected";
-            const statusText = athlete.допуск === "✅" ? "ДОПУСК ПОДТВЕРЖДЕН" : "ДОПУСК ЗАПРЕЩЕН";
+function displayAthleteData(data) {
+    console.log('Загруженные данные:', data);
+    
+    // Приводим ключи к нижнему регистру для надежности
+    const normalizedData = {};
+    Object.keys(data).forEach(key => {
+        normalizedData[key.toLowerCase()] = data[key];
+    });
+    
+    const athlete = normalizedData;
+    const statusClass = athlete.допуск === "✅" ? "status-approved" : "status-rejected";
+    const statusText = athlete.допуск === "✅" ? "ДОПУСК ПОДТВЕРЖДЕН" : "ДОПУСК ЗАПРЕЩЕН";
 
-            const html = `
-                <div class="athlete-card">
-                    <div class="athlete-header">
-                        <div class="athlete-main-info">
-                            <h2>${athlete.фио || 'Не указано'}</h2>
-                            <p class="personal-info">
-                                <strong>Дата рождения:</strong> ${athlete.дата_рождения || 'Не указана'}
-                            </p>
-                        </div>
+    // Форматируем дату рождения
+    let formattedBirthDate = athlete.дата_рождения || 'Не указана';
+    if (athlete.дата_рождения) {
+        try {
+            // Пробуем разные форматы дат
+            const date = new Date(athlete.дата_рождения);
+            if (!isNaN(date.getTime())) {
+                // Форматируем как дд.мм.гггг
+                formattedBirthDate = date.toLocaleDateString('ru-RU', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric'
+                });
+            }
+        } catch (e) {
+            // Если не удалось отформатировать, оставляем как есть
+            console.log('Не удалось отформатировать дату:', e);
+        }
+    }
+
+    const html = `
+        <div class="athlete-card">
+            <div class="athlete-header">
+                <div class="athlete-main-info">
+                    <h2>${athlete.фио || 'Не указано'}</h2>
+                    <p class="personal-info">
+                        <strong>Дата рождения:</strong> ${formattedBirthDate}
+                    </p>
+                </div>
+            </div>
+            
+            <div class="${statusClass}">${statusText}</div>
+            
+            <div class="section">
+                <h3>📋 Допуски к соревнованиям:</h3>
+                <p>🏥 Медсправка: ${athlete.статус_медсправки || '❌'}</p>
+                <p>📄 Страховка: ${athlete.статус_страховки || '❌'}</p>
+                <p>💰 Членский взнос: ${athlete.членский_взнос || '❌'}</p>
+            </div>
+            
+            <div class="section">
+                <h3>🏅 Спортивная информация:</h3>
+                ${athlete.дисциплина ? `<div class="info-item"><strong>Дисциплина:</strong> ${athlete.дисциплина}</div>` : ''}
+                <div class="info-grid">
+                    <div class="info-item">
+                        <strong>Рейтинг:</strong><br>${athlete.рейтинг || 'Не указан'}
                     </div>
-                    
-                    <div class="${statusClass}">${statusText}</div>
-                    
-                    <div class="section">
-                        <h3>📋 Допуски к соревнованиям:</h3>
-                        <p>🏥 Медсправка: ${athlete.статус_медсправки || '❌'}</p>
-                        <p>📄 Страховка: ${athlete.статус_страховки || '❌'}</p>
-                        <p>💰 Членский взнос: ${athlete.членский_взнос || '❌'}</p>
-                    </div>
-                    
-                    <div class="section">
-                        <h3>🏅 Спортивная информация:</h3>
-                        ${athlete.дисциплина ? `<div class="info-item"><strong>Дисциплина:</strong> ${athlete.дисциплина}</div>` : ''}
-                        <div class="info-grid">
-                            <div class="info-item">
-                                <strong>Рейтинг:</strong><br>${athlete.рейтинг || 'Не указан'}
-                            </div>
-                            <div class="info-item">
-                                <strong>Телефон:</strong><br>${athlete.телефон || 'Не указан'}
-                            </div>
-                        </div>
-                        <div style="margin-top: 15px;">
-                            <p><strong>Достижения:</strong> ${athlete.достижения || 'Нет'}</p>
-                            <p><strong>Элементы:</strong> ${athlete.элементы || 'Нет'}</p>
-                        </div>
-                    </div>
-                    
-                    <div style="margin-top: 20px; padding: 10px; background: #e9ecef; border-radius: 5px;">
-                        <small>ID спортсмена: ${athlete.id} | Обновлено: ${new Date().toLocaleString()}</small>
+                    <div class="info-item">
+                        <strong>Телефон:</strong><br>${athlete.телефон || 'Не указан'}
                     </div>
                 </div>
-            `;
+                <div style="margin-top: 15px;">
+                    <p><strong>Достижения:</strong> ${athlete.достижения || 'Нет'}</p>
+                    <p><strong>Элементы:</strong> ${athlete.элементы || 'Нет'}</p>
+                </div>
+            </div>
+            
+            <div style="margin-top: 20px; padding: 10px; background: #e9ecef; border-radius: 5px;">
+                <small>ID спортсмена: ${athlete.id} | Обновлено: ${new Date().toLocaleString()}</small>
+            </div>
+        </div>
+    `;
 
-            document.getElementById('athlete-info').innerHTML = html;
-        }
+    document.getElementById('athlete-info').innerHTML = html;
+}
 
         // Функция показа ошибки
         function showError(message) {
