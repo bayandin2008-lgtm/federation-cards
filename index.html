@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Федерация воздушно-силовой атлетики</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .athlete-card {
+            border: 2px solid #333;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .status-approved {
+            color: green;
+            font-weight: bold;
+        }
+        .status-rejected {
+            color: red;
+            font-weight: bold;
+        }
+        .photo {
+            width: 150px;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Карточка спортсмена</h1>
+    <div id="athlete-info">
+        <p>Загрузка данных...</p>
+    </div>
+
+    <script>
+        // Функция для получения ID из URL
+        function getAthleteId() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('id');
+        }
+
+        // Функция для загрузки данных из Google Sheets
+        async function loadAthleteData() {
+            const athleteId = getAthleteId();
+            if (!athleteId) {
+                document.getElementById('athlete-info').innerHTML = '<p>ID спортсмена не указан</p>';
+                return;
+            }
+
+            try {
+                // Пока используем тестовые данные
+                const testData = {
+                    id: "1",
+                    name: "Иванов Алексей",
+                    photo: "",
+                    birthDate: "1995-03-15",
+                    medicalStatus: "✅",
+                    insuranceStatus: "✅",
+                    membershipFee: "✅",
+                    rating: "85",
+                    admission: "✅",
+                    achievements: "Чемпион Москвы 2023",
+                    elements: "Выход силой, горизонт"
+                };
+
+                displayAthleteData(testData);
+                
+            } catch (error) {
+                document.getElementById('athlete-info').innerHTML = '<p>Ошибка загрузки данных</p>';
+                console.error(error);
+            }
+        }
+
+        // Функция для отображения данных спортсмена
+        function displayAthleteData(data) {
+            const statusClass = data.admission === "✅" ? "status-approved" : "status-rejected";
+            const statusText = data.admission === "✅" ? "ДОПУСК ПОДТВЕРЖДЕН" : "ДОПУСК ЗАПРЕЩЕН";
+
+            const html = `
+                <div class="athlete-card">
+                    <h2>${data.name}</h2>
+                    ${data.photo ? `<img src="${data.photo}" alt="Фото" class="photo">` : ''}
+                    
+                    <h3>Допуски:</h3>
+                    <p>Медсправка: ${data.medicalStatus}</p>
+                    <p>Страховка: ${data.insuranceStatus}</p>
+                    <p>Членский взнос: ${data.membershipFee}</p>
+                    
+                    <h3 class="${statusClass}">${statusText}</h3>
+                    
+                    <h3>Спортивная информация:</h3>
+                    <p>Рейтинг: ${data.rating}</p>
+                    <p>Достижения: ${data.achievements}</p>
+                    <p>Элементы: ${data.elements}</p>
+                    <p>Дата рождения: ${data.birthDate}</p>
+                </div>
+            `;
+
+            document.getElementById('athlete-info').innerHTML = html;
+        }
+
+        // Загружаем данные при загрузке страницы
+        window.onload = loadAthleteData;
+    </script>
+</body>
+</html>
