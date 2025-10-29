@@ -20,10 +20,12 @@
         .status-approved {
             color: green;
             font-weight: bold;
+            font-size: 1.2em;
         }
         .status-rejected {
             color: red;
             font-weight: bold;
+            font-size: 1.2em;
         }
         .photo {
             width: 150px;
@@ -31,75 +33,107 @@
             object-fit: cover;
             border-radius: 5px;
         }
+        .loading {
+            text-align: center;
+            font-size: 1.2em;
+        }
     </style>
 </head>
 <body>
-    <h1>Карточка спортсмена</h1>
+    <h1>🏆 Федерация воздушно-силовой атлетики</h1>
     <div id="athlete-info">
-        <p>Загрузка данных...</p>
+        <p class="loading">Загрузка данных спортсмена...</p>
     </div>
 
     <script>
-        // Функция для получения ID из URL
+        // ID вашей Google таблицы
+        const SPREADSHEET_ID = '1i0XJEl3JkX1rB5StPxcpjMXcF31Le5PUhpVc5T8en8E';
+        
+        // Функция для получения ID спортсмена из URL
         function getAthleteId() {
             const urlParams = new URLSearchParams(window.location.search);
-            return urlParams.get('id');
+            return urlParams.get('id') || '1'; // По умолчанию ID=1 для теста
         }
 
         // Функция для загрузки данных из Google Sheets
         async function loadAthleteData() {
             const athleteId = getAthleteId();
-            if (!athleteId) {
-                document.getElementById('athlete-info').innerHTML = '<p>ID спортсмена не указан</p>';
-                return;
-            }
-
+            
             try {
-                // Пока используем тестовые данные
-                const testData = {
-                    id: "1",
-                    name: "Иванов Алексей",
-                    photo: "",
-                    birthDate: "1995-03-15",
-                    medicalStatus: "✅",
-                    insuranceStatus: "✅",
-                    membershipFee: "✅",
-                    rating: "85",
-                    admission: "✅",
-                    achievements: "Чемпион Москвы 2023",
-                    elements: "Выход силой, горизонт"
-                };
-
-                displayAthleteData(testData);
+                // Загружаем данные из Google Sheets в формате CSV
+                const response = await fetch(`https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv`);
+                const csvData = await response.text();
+                
+                // Преобразуем CSV в массив объектов
+                const athletes = parseCSV(csvData);
+                
+                // Находим спортсмена по ID
+                const athlete = athletes.find(a => a.id === athleteId);
+                
+                if (athlete) {
+                    displayAthleteData(athlete);
+                } else {
+                    document.getElementById('athlete-info').innerHTML = 
+                        '<p>Спортсмен с ID ' + athleteId + ' не найден</p>';
+                }
                 
             } catch (error) {
-                document.getElementById('athlete-info').innerHTML = '<p>Ошибка загрузки данных</p>';
-                console.error(error);
+                document.getElementById('athlete-info').innerHTML = 
+                    '<p>Ошибка загрузки данных. Проверьте подключение к интернету.</p>';
+                console.error('Ошибка:', error);
             }
+        }
+
+        // Функция для парсинга CSV
+        function parseCSV(csvText) {
+            const lines = csvText.split('\n');
+            const headers = lines[0].split(',').map(header => 
+                header.replace(/"/g, '').trim()
+            );
+            
+            const athletes = [];
+            
+            for (let i = 1; i < lines.length; i++) {
+                if (lines[i].trim() === '') continue;
+                
+                const values = lines[i].split(',').map(value => 
+                    value.replace(/"/g, '').trim()
+                );
+                
+                const athlete = {};
+                headers.forEach((header, index) => {
+                    athlete[header.toLowerCase()] = values[index] || '';
+                });
+                
+                athletes.push(athlete);
+            }
+            
+            return athletes;
         }
 
         // Функция для отображения данных спортсмена
         function displayAthleteData(data) {
-            const statusClass = data.admission === "✅" ? "status-approved" : "status-rejected";
-            const statusText = data.admission === "✅" ? "ДОПУСК ПОДТВЕРЖДЕН" : "ДОПУСК ЗАПРЕЩЕН";
+            const statusClass = data.допуск === "✅" ? "status-approved" : "status-rejected";
+            const statusText = data.допуск === "✅" ? "ДОПУСК ПОДТВЕРЖДЕН" : "ДОПУСК ЗАПРЕЩЕН";
 
             const html = `
                 <div class="athlete-card">
-                    <h2>${data.name}</h2>
-                    ${data.photo ? `<img src="${data.photo}" alt="Фото" class="photo">` : ''}
+                    <h2>${data.фио || 'Не указано'}</h2>
+                    ${data.фото_url ? `<img src="${data.фото_url}" alt="Фото" class="photo">` : '<p>Фото не загружено</p>'}
                     
-                    <h3>Допуски:</h3>
-                    <p>Медсправка: ${data.medicalStatus}</p>
-                    <p>Страховка: ${data.insuranceStatus}</p>
-                    <p>Членский взнос: ${data.membershipFee}</p>
+                    <h3>📋 Допуски:</h3>
+                    <p>🏥 Медсправка: ${data.статус_медсправки || '❌'}</p>
+                    <p>📄 Страховка: ${data.статус_страховки || '❌'}</p>
+                    <p>💰 Членский взнос: ${data.членский_взнос || '❌'}</p>
                     
                     <h3 class="${statusClass}">${statusText}</h3>
                     
-                    <h3>Спортивная информация:</h3>
-                    <p>Рейтинг: ${data.rating}</p>
-                    <p>Достижения: ${data.achievements}</p>
-                    <p>Элементы: ${data.elements}</p>
-                    <p>Дата рождения: ${data.birthDate}</p>
+                    <h3>🏅 Спортивная информация:</h3>
+                    <p>⭐ Рейтинг: ${data.рейтинг || 'Не указан'}</p>
+                    <p>📅 Дата рождения: ${data.дата_рождения || 'Не указана'}</p>
+                    <p>🏆 Достижения: ${data.достижения || 'Нет'}</p>
+                    <p>💪 Элементы: ${data.элементы || 'Нет'}</p>
+                    <p>📞 Телефон: ${data.телефон || 'Не указан'}</p>
                 </div>
             `;
 
