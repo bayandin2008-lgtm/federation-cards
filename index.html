@@ -35,21 +35,21 @@
             color: #28a745;
             font-weight: bold;
             font-size: 1.3em;
-            padding: 10px;
-            border: 2px solid #28a745;
-            border-radius: 5px;
             text-align: center;
             margin: 15px 0;
+            padding: 15px;
+            background-color: #f0fff4;
+            border-radius: 8px;
         }
         .status-rejected {
             color: #dc3545;
             font-weight: bold;
             font-size: 1.3em;
-            padding: 10px;
-            border: 2px solid #dc3545;
-            border-radius: 5px;
             text-align: center;
             margin: 15px 0;
+            padding: 15px;
+            background-color: #fff0f0;
+            border-radius: 8px;
         }
         .photo {
             width: 120px;
@@ -70,15 +70,6 @@
             background: #f8f9fa;
             border-radius: 8px;
         }
-        .discipline-badge {
-            display: inline-block;
-            background: #007bff;
-            color: white;
-            padding: 5px 10px;
-            border-radius: 15px;
-            font-size: 0.9em;
-            margin-top: 5px;
-        }
         .personal-info {
             color: #666;
             margin: 5px 0;
@@ -89,6 +80,18 @@
             padding: 20px;
             border-radius: 5px;
             margin: 20px 0;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .info-item {
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+            border-left: 4px solid #007bff;
         }
     </style>
 </head>
@@ -150,9 +153,10 @@
                             <p class="personal-info">
                                 <strong>Дата рождения:</strong> ${athlete.дата_рождения || 'Не указана'}
                             </p>
-                            ${athlete.дисциплина ? `<div class="discipline-badge">${athlete.дисциплина}</div>` : ''}
                         </div>
                     </div>
+                    
+                    <div class="${statusClass}">${statusText}</div>
                     
                     <div class="section">
                         <h3>📋 Допуски к соревнованиям:</h3>
@@ -161,14 +165,21 @@
                         <p>💰 Членский взнос: ${athlete.членский_взнос || '❌'}</p>
                     </div>
                     
-                    <div class="${statusClass}">${statusText}</div>
-                    
                     <div class="section">
                         <h3>🏅 Спортивная информация:</h3>
-                        <p>⭐ Рейтинг: ${athlete.рейтинг || 'Не указан'}</p>
-                        <p>🏆 Достижения: ${athlete.достижения || 'Нет'}</p>
-                        <p>💪 Элементы: ${athlete.элементы || 'Нет'}</p>
-                        <p>📞 Телефон: ${athlete.телефон || 'Не указан'}</p>
+                        ${athlete.дисциплина ? `<div class="info-item"><strong>Дисциплина:</strong> ${athlete.дисциплина}</div>` : ''}
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <strong>Рейтинг:</strong><br>${athlete.рейтинг || 'Не указан'}
+                            </div>
+                            <div class="info-item">
+                                <strong>Телефон:</strong><br>${athlete.телефон || 'Не указан'}
+                            </div>
+                        </div>
+                        <div style="margin-top: 15px;">
+                            <p><strong>Достижения:</strong> ${athlete.достижения || 'Нет'}</p>
+                            <p><strong>Элементы:</strong> ${athlete.элементы || 'Нет'}</p>
+                        </div>
                     </div>
                     
                     <div style="margin-top: 20px; padding: 10px; background: #e9ecef; border-radius: 5px;">
