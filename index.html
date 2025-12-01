@@ -102,153 +102,137 @@
     </div>
 
     <script>
-        // URL вашего Google Apps Script веб-приложения
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzmx0alt8rTx7Ry2nuJMwYbDOUlwppnbkQCck8FOo8lFJ9jd4nUEgkWNcYU66LM37MuWg/exec';
-        
-        // Функция для получения ID спортсмена из URL
-        function getAthleteId() {
-            const urlParams = new URLSearchParams(window.location.search);
-            return urlParams.get('id') || '1';
-        }
+    // URL вашего Google Apps Script веб-приложения
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzmx0alt8rTx7Ry2nuJMwYbDOUlwppnbkQCck8FOo8lFJ9jd4nUEgkWNcYU66LM37MuWg/exec';
+    
+    // Функция для получения ID спортсмена из URL
+    function getAthleteId() {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get('id') || '1';
+    }
 
-        // Глобальная функция для обработки JSONP ответа
-        window.handleJsonpResponse = function(response) {
+    // Функция для загрузки данных через JSONP
+    function loadAthleteData() {
+        const athleteId = getAthleteId();
+        const callbackName = 'handleJsonpResponse_' + Date.now(); // Уникальное имя
+        
+        // Создаем глобальную функцию для обработки ответа
+        window[callbackName] = function(response) {
+            console.log('Получен ответ от сервера:', response);
+            
             if (response.success && response.data) {
                 displayAthleteData(response.data);
             } else {
                 showError(response.error || 'Спортсмен не найден');
             }
+            
+            // Удаляем временную функцию
+            delete window[callbackName];
         };
-
-        // Функция для загрузки данных через JSONP
-        function loadAthleteData() {
-            const athleteId = getAthleteId();
-            const callbackName = 'handleJsonpResponse';
-            
-            // Создаем script тег для JSONP запроса
-            const script = document.createElement('script');
-            script.src = `${SCRIPT_URL}?id=${athleteId}&callback=${callbackName}`;
-            
-            // Обработчик ошибок
-            script.onerror = function() {
-                showError('Ошибка загрузки данных. Проверьте подключение к интернету.');
-            };
-            
-            // Добавляем script на страницу
-            document.head.appendChild(script);
-        }
-
-        // Функция для отображения данных спортсмена
-function displayAthleteData(data) {
-    console.log('Загруженные данные:', data);
-    
-    // Приводим ключи к нижнему регистру для надежности
-    const normalizedData = {};
-    Object.keys(data).forEach(key => {
-        normalizedData[key.toLowerCase()] = data[key];
-    });
-    
-    const athlete = normalizedData;
-    const statusClass = athlete.допуск === "✅" ? "status-approved" : "status-rejected";
-    const statusText = athlete.допуск === "✅" ? "ДОПУСК ПОДТВЕРЖДЕН" : "ДОПУСК ЗАПРЕЩЕН";
-
-    // Универсальная функция форматирования даты
-    function formatBirthDate(dateString) {
-        if (!dateString) return 'Не указана';
         
-        console.log('Исходная дата:', dateString, 'Тип:', typeof dateString);
+        // Создаем script тег для JSONP запроса
+        const script = document.createElement('script');
+        script.src = `${SCRIPT_URL}?id=${athleteId}&callback=${callbackName}`;
         
-        // Если дата уже в правильном формате (дд.мм.гггг)
-        if (typeof dateString === 'string' && dateString.match(/^\d{1,2}\.\d{1,2}\.\d{4}$/)) {
-            return dateString;
-        }
+        // Обработчик ошибок
+        script.onerror = function() {
+            console.error('Ошибка загрузки скрипта');
+            showError('Ошибка подключения к серверу');
+            delete window[callbackName];
+        };
         
-        // Если это ISO строка (2024-03-14T21:00:00.000Z)
-        if (typeof dateString === 'string' && dateString.includes('T')) {
-            try {
-                const date = new Date(dateString);
-                return date.toLocaleDateString('ru-RU');
-            } catch (e) {
-                console.error('Ошибка форматирования ISO даты:', e);
-                return dateString;
-            }
-        }
-        
-        // Если это объект Date или timestamp
-        try {
-            const date = new Date(dateString);
-            if (!isNaN(date.getTime())) {
-                return date.toLocaleDateString('ru-RU');
-            }
-        } catch (e) {
-            console.error('Ошибка форматирования даты:', e);
-        }
-        
-        // Если ничего не подошло, возвращаем как есть
-        return dateString;
+        // Добавляем script на страницу
+        document.head.appendChild(script);
     }
 
-    const formattedBirthDate = formatBirthDate(athlete.дата_рождения);
-
-    const html = `
-        <div class="athlete-card">
-            <div class="athlete-header">
-                <div class="athlete-main-info">
-                    <h2>${athlete.фио || 'Не указано'}</h2>
-                    <p class="personal-info">
-                        <strong>Дата рождения:</strong> ${formattedBirthDate}
-                    </p>
-                </div>
-            </div>
+    // Функция для отображения данных спортсмена
+    function displayAthleteData(data) {
+        console.log('Загруженные данные для отображения:', data);
+        
+        // Форматируем дату рождения
+        function formatBirthDate(dateString) {
+            if (!dateString) return 'Не указана';
             
-            <div class="${statusClass}">${statusText}</div>
+            try {
+                const date = new Date(dateString);
+                if (!isNaN(date.getTime())) {
+                    return date.toLocaleDateString('ru-RU');
+                }
+            } catch (e) {
+                console.log('Не удалось отформатировать дату:', e);
+            }
             
-            <div class="section">
-                <h3>📋 Допуски к соревнованиям:</h3>
-                <p>🏥 Медсправка: ${athlete.статус_медсправки || '❌'}</p>
-                <p>📄 Страховка: ${athlete.статус_страховки || '❌'}</p>
-                <p>💰 Членский взнос: ${athlete.членский_взнос || '❌'}</p>
-            </div>
-            
-            <div class="section">
-                <h3>🏅 Спортивная информация:</h3>
-                ${athlete.дисциплина ? `<div class="info-item"><strong>Дисциплина:</strong> ${athlete.дисциплина}</div>` : ''}
-                <div class="info-grid">
-                    <div class="info-item">
-                        <strong>Рейтинг:</strong><br>${athlete.рейтинг || 'Не указан'}
-                    </div>
-                    <div class="info-item">
-                        <strong>Телефон:</strong><br>${athlete.телефон || 'Не указан'}
-                    </div>
-                </div>
-                <div style="margin-top: 15px;">
-                    <p><strong>Достижения:</strong> ${athlete.достижения || 'Нет'}</p>
-                    <p><strong>Элементы:</strong> ${athlete.элементы || 'Нет'}</p>
-                </div>
-            </div>
-            
-            <div style="margin-top: 20px; padding: 10px; background: #e9ecef; border-radius: 5px;">
-                <small>ID спортсмена: ${athlete.id} | Обновлено: ${new Date().toLocaleString()}</small>
-            </div>
-        </div>
-    `;
-
-    document.getElementById('athlete-info').innerHTML = html;
-}
-
-        // Функция показа ошибки
-        function showError(message) {
-            document.getElementById('athlete-info').innerHTML = `
-                <div class="error">
-                    <h3>Ошибка загрузки</h3>
-                    <p>${message}</p>
-                    <button onclick="location.reload()" style="padding: 10px 20px; margin-top: 10px;">Обновить страницу</button>
-                </div>
-            `;
+            return dateString;
         }
 
-        // Загружаем данные при загрузке страницы
-        window.onload = loadAthleteData;
-    </script>
+        const formattedBirthDate = formatBirthDate(data.дата_рождения);
+        const statusClass = data.допуск === "✅" ? "status-approved" : "status-rejected";
+        const statusText = data.допуск === "✅" ? "ДОПУСК ПОДТВЕРЖДЕН" : "ДОПУСК ЗАПРЕЩЕН";
+
+        const html = `
+            <div class="athlete-card">
+                <div class="athlete-header">
+                    <div class="athlete-main-info">
+                        <h2>${data.фио || 'Не указано'}</h2>
+                        <p class="personal-info">
+                            <strong>Дата рождения:</strong> ${formattedBirthDate}
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="${statusClass}">${statusText}</div>
+                
+                <div class="section">
+                    <h3>📋 Допуски к соревнованиям:</h3>
+                    <p>🏥 Медсправка: ${data.статус_медсправки || '❌'}</p>
+                    <p>📄 Страховка: ${data.статус_страховки || '❌'}</p>
+                    <p>💰 Членский взнос: ${data.членский_взнос || '❌'}</p>
+                </div>
+                
+                <div class="section">
+                    <h3>🏅 Спортивная информация:</h3>
+                    ${data.дисциплина ? `<div class="info-item"><strong>Дисциплина:</strong> ${data.дисциплина}</div>` : ''}
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <strong>Рейтинг:</strong><br>${data.рейтинг || 'Не указан'}
+                        </div>
+                        <div class="info-item">
+                            <strong>Телефон:</strong><br>${data.телефон || 'Не указан'}
+                        </div>
+                    </div>
+                    <div style="margin-top: 15px;">
+                        <p><strong>Достижения:</strong> ${data.достижения || 'Нет'}</p>
+                        <p><strong>Элементы:</strong> ${data.элементы || 'Нет'}</p>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 20px; padding: 10px; background: #e9ecef; border-radius: 5px;">
+                    <small>ID спортсмена: ${data.id} | Обновлено: ${new Date().toLocaleString()}</small>
+                </div>
+            </div>
+        `;
+
+        document.getElementById('athlete-info').innerHTML = html;
+    }
+
+    // Функция показа ошибки
+    function showError(message) {
+        console.error('Показана ошибка:', message);
+        document.getElementById('athlete-info').innerHTML = `
+            <div class="error">
+                <h3>Ошибка загрузки</h3>
+                <p>${message}</p>
+                <p><small>Проверьте консоль браузера (F12) для подробностей</small></p>
+                <button onclick="location.reload()" style="padding: 10px 20px; margin-top: 10px;">Обновить страницу</button>
+            </div>
+        `;
+    }
+
+    // Загружаем данные при загрузке страницы
+    window.onload = function() {
+        console.log('Страница загружена, начинаем загрузку данных...');
+        loadAthleteData();
+    };
+</script>
 </body>
 </html>
